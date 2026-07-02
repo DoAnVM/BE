@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: "payment-service"
+
+  datasource:
+    # url: ${DB_URL:jdbc:postgresql://14.162.146.23:5432/payment_service}
+    # username: ${DB_USERNAME:root}
+    # password: ${DB_PASSWORD:root@2025}
+
+    url: ${DB_URL:jdbc:postgresql://34.142.184.250:5432/payment_service}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:18052004}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 3
+      minimum-idle: 1
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: ${JPA_SHOW_SQL:true}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+server:
+  port: ${PORT:${SERVER_PORT:8087}}
+
+eureka:
+  client:
+    enabled: ${EUREKA_CLIENT_ENABLED:true}
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
+
+# PayOS Configuration - Use environment variables for secrets
+payos:
+  client-id: ${PAYOS_CLIENT_ID:7fdf49c6-eb90-4af7-9144-b014aff389c4}
+  api-key: ${PAYOS_API_KEY:eb8139de-7a1a-4543-85d2-69e3e986f78e}
+  checksum-key: ${PAYOS_CHECKSUM_KEY:ef0b57e918bf657a994e4b81b45e7754738f17294cabd5665ff4956ce10ee36b}
+  return-url: ${PAYOS_RETURN_URL:http://localhost:5172/payment/success}
+  cancel-url: ${PAYOS_CANCEL_URL:http://localhost:5172/payment/cancel}

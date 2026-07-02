@@ -1,0 +1,45 @@
+server:
+  port: ${PORT:8081}
+
+eureka:
+  client:
+    enabled: ${EUREKA_CLIENT_ENABLED:true}
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
+
+spring:
+  application:
+    name: "user-service"
+
+  datasource:
+    # url: ${DB_URL:jdbc:postgresql://14.162.146.23:5432/user_service}
+    # username: ${DB_USERNAME:root}
+    # password: ${DB_PASSWORD:root@2025}
+
+    url: ${DB_URL:jdbc:postgresql://34.142.184.250:5432/user_service}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:18052004}
+    hikari:
+      maximum-pool-size: 3
+      minimum-idle: 1
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: ${JPA_SHOW_SQL:true}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+application:
+  security:
+    jwt:
+      secret-key: ${JWT_SECRET:b6a4f2319dbde50cf2a1e476ec9f77e3d8c22148790c4e537103c0f77e3a6c42}
+      expiration: ${JWT_EXPIRATION:1209600000}

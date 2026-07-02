@@ -1,0 +1,270 @@
+version: '3.8'
+
+# ============================================================
+#  HOTEL BOOKING - Backend Docker Compose (Local Dev)
+#  DB: GCP Cloud SQL (34.142.184.250)
+#  Services: chạy trong Docker trên máy local
+#
+#  FIX: Không dùng /actuator/health vì chưa có Spring Actuator.
+#       Health check dùng wget thử kết nối HTTP thông thường.
+#       depends_on dùng service_started (không chờ healthy).
+# ============================================================
+
+networks:
+  hotel-network:
+    driver: bridge
+
+services:
+
+  # ─────────────────────────────────────────────
+  #  0. ZOOKEEPER (required by Kafka)
+  # ─────────────────────────────────────────────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - hotel-network
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  #  0. KAFKA BROKER
+  # ─────────────────────────────────────────────
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    depends_on:
+      - zookeeper
+    networks:
+      - hotel-network
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list > /dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  #  1. EUREKA SERVER (Service Discovery)
+  # ─────────────────────────────────────────────
+  eureka-server:
+    build:
+      context: ./eureka-server
+      dockerfile: Dockerfile
+    container_name: eureka-server
+    ports:
+      - "8761:8761"
+    environment:
+      - SERVER_PORT=8761
+    networks:
+      - hotel-network
+    healthcheck:
+      # Eureka có sẵn endpoint / trả về HTML → dùng để kiểm tra sống
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8761/ > /dev/null 2>&1 && echo OK || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 45s
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  #  2. API GATEWAY (port 1111)
+  # ─────────────────────────────────────────────
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    ports:
+      - "1111:1111"
+    environment:
+      - SERVER_PORT=1111
+      - EUREKA_URL=http://eureka-server:8761/eureka/
+      - EUREKA_CLIENT_ENABLED=true
+      - JWT_SECRET=b6a4f2319dbde50cf2a1e476ec9f77e3d8c22148790c4e537103c0f77e3a6c42
+      - JWT_EXPIRATION=1209600000
+      - LOG_LEVEL=INFO
+    networks:
+      - hotel-network
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  #  3. USER SERVICE (port 8081)
+  # ─────────────────────────────────────────────
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    container_name: user-service
+    ports:
+      - "8081:8081"
+    environment:
+      - PORT=8081
+      - DB_URL=jdbc:postgresql://34.142.184.250:5432/user_service
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=18052004
+      - EUREKA_URL=http://eureka-server:8761/eureka/
+      - EUREKA_CLIENT_ENABLED=true
+      - JWT_SECRET=b6a4f2319dbde50cf2a1e476ec9f77e3d8c22148790c4e537103c0f77e3a6c42
+      - JWT_EXPIRATION=1209600000
+      - JPA_SHOW_SQL=false
+    networks:
+      - hotel-network
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  #  4. ROOM SERVICE (port 8082)
+  # ─────────────────────────────────────────────
+  room-service:
+    build:
+      context: ./room-service
+      dockerfile: Dockerfile
+    container_name: room-service
+    ports:
+      - "8082:8082"
+    environment:
+      - PORT=8082
+      - DB_URL=jdbc:postgresql://34.142.184.250:5432/room_service
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=18052004
+      - EUREKA_URL=http://eureka-server:8761/eureka/
+      - EUREKA_CLIENT_ENABLED=true
+      - JPA_SHOW_SQL=false
+    networks:
+      - hotel-network
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  #  5. HOTEL SERVICE (port 8083)
+  # ─────────────────────────────────────────────
+  hotel-service:
+    build:
+      context: ./hotel-service
+      dockerfile: Dockerfile
+    container_name: hotel-service
+    ports:
+      - "8083:8083"
+    environment:
+      - PORT=8083
+      - DB_URL=jdbc:postgresql://34.142.184.250:5432/hotel_service
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=18052004
+      - EUREKA_URL=http://eureka-server:8761/eureka/
+      - EUREKA_CLIENT_ENABLED=true
+      - JPA_SHOW_SQL=false
+    networks:
+      - hotel-network
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  #  6. BOOKING SERVICE (port 8084)
+  # ─────────────────────────────────────────────
+  booking-service:
+    build:
+      context: ./booking-service
+      dockerfile: Dockerfile
+    container_name: booking-service
+    ports:
+      - "8084:8084"
+    environment:
+      - PORT=8084
+      - DB_URL=jdbc:postgresql://34.142.184.250:5432/booking_service
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=18052004
+      - EUREKA_URL=http://eureka-server:8761/eureka/
+      - EUREKA_CLIENT_ENABLED=true
+      - KAFKA_SERVERS=kafka:29092
+      - JPA_SHOW_SQL=false
+      - GOOGLE_CLIENT_ID=your-client-id
+      - GOOGLE_CLIENT_SECRET=your-client-secret
+    networks:
+      - hotel-network
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  #  7. REVIEW SERVICE (port 8085)
+  # ─────────────────────────────────────────────
+  review-service:
+    build:
+      context: ./review-service
+      dockerfile: Dockerfile
+    container_name: review-service
+    ports:
+      - "8085:8085"
+    environment:
+      - SERVER_PORT=8085
+      - DB_URL=jdbc:postgresql://34.142.184.250:5432/review_service
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=18052004
+      - EUREKA_URL=http://eureka-server:8761/eureka/
+      - EUREKA_CLIENT_ENABLED=true
+      - USER_SERVICE_URL=http://user-service:8081
+      - HOTEL_SERVICE_URL=http://hotel-service:8083
+      - JPA_SHOW_SQL=false
+    networks:
+      - hotel-network
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────
+  #  8. PAYMENT SERVICE (port 8087)
+  # ─────────────────────────────────────────────
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    container_name: payment-service
+    ports:
+      - "8087:8087"
+    environment:
+      - SERVER_PORT=8087
+      - DB_URL=jdbc:postgresql://34.142.184.250:5432/payment_service
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=18052004
+      - EUREKA_URL=http://eureka-server:8761/eureka/
+      - EUREKA_CLIENT_ENABLED=true
+      # PayOS credentials
+      - PAYOS_CLIENT_ID=7fdf49c6-eb90-4af7-9144-b014aff389c4
+      - PAYOS_API_KEY=eb8139de-7a1a-4543-85d2-69e3e986f78e
+      - PAYOS_CHECKSUM_KEY=ef0b57e918bf657a994e4b81b45e7754738f17294cabd5665ff4956ce10ee36b
+      # ★ Rollback URLs: PayOS redirect về FE Customer (chạy trên máy host)
+      - PAYOS_RETURN_URL=http://localhost:5172/payment/success
+      - PAYOS_CANCEL_URL=http://localhost:5172/payment/cancel
+      - JPA_SHOW_SQL=false
+    networks:
+      - hotel-network
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    restart: unless-stopped
