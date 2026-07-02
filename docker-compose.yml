@@ -259,8 +259,8 @@ services:
       - PAYOS_API_KEY=eb8139de-7a1a-4543-85d2-69e3e986f78e
       - PAYOS_CHECKSUM_KEY=ef0b57e918bf657a994e4b81b45e7754738f17294cabd5665ff4956ce10ee36b
       # ★ Rollback URLs: PayOS redirect về FE Customer (chạy trên máy host)
-      - PAYOS_RETURN_URL=http://localhost:5172/payment/success
-      - PAYOS_CANCEL_URL=http://localhost:5172/payment/cancel
+      - PAYOS_RETURN_URL=http://34.142.206.62:5172/payment/success
+      - PAYOS_CANCEL_URL=http://34.142.206.62:5172/payment/cancel
       - JPA_SHOW_SQL=false
     networks:
       - hotel-network
