@@ -238,11 +238,17 @@ public class BookingService implements IBookingService {
             return duplicatedBookingId;
         }
 
+        // Tính số đêm từ checkInDate → checkOutDate
+        long nights = Math.max(1,
+                addBooking.checkOutDate.toLocalDate().toEpochDay()
+                - addBooking.checkInDate.toLocalDate().toEpochDay());
+
         List<Booking> bookings = new ArrayList<>();
         for (Map.Entry<BookingItemKey, Integer> entry : normalizedItems.entrySet()) {
             BookingItemKey item = entry.getKey();
             int totalRoom = entry.getValue();
-            float totalFee = item.unitFee() * totalRoom;
+            // totalFee = giá 1 đêm × số phòng × số đêm
+            float totalFee = item.unitFee() * totalRoom * nights;
 
             Booking booking = Booking.builder()
                     .customerId(customerId)
