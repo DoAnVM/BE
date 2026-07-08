@@ -18,17 +18,16 @@ import com.hotel.hotel_service.repository.AmenityRepository;
 import com.hotel.hotel_service.repository.HomeAmenityRepository;
 import com.hotel.hotel_service.repository.HomeImageRepository;
 import com.hotel.hotel_service.repository.HomeRepository;
-import com.netflix.discovery.converters.Auto;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.security.SecurityProperties.User;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -253,14 +252,8 @@ public class HotelService implements IHotelService {
         }
     }
 
-//    @Override
-//
-//
-//
-
     @Override
     public List<SearchHotelResult> searchHotels(SearchHotel searchHotel) {
-        // 1. Tìm khách sạn theo thành phố
         List<Home> homes = homeRepository.findByCityContainingIgnoreCase(searchHotel.city);
         if (homes.isEmpty()) {
             return new ArrayList<>();
@@ -292,7 +285,6 @@ public class HotelService implements IHotelService {
                         result.setAvailableRooms(availableRooms);
                         result.setTotalRooms(totalRooms != null ? totalRooms : 0);
 
-                        // Lấy hình ảnh
                         List<HomeImage> homeImages = homeImageRepository.findHomeImageByHome_Id(home.getId());
                         if (!homeImages.isEmpty()) {
                             result.setImageUrl(homeImages.get(0).getImageUrl());
@@ -379,6 +371,16 @@ public class HotelService implements IHotelService {
         }
         return 0;
 
+    }
+    @Override
+    public List<String> getAllAmenities() {
+        return amenityRepository.findAll()
+                .stream()
+                .map(Amenities::getAmenity_name)
+                .filter(name -> name != null && !name.isBlank())
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList());
     }
 
 
