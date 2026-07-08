@@ -115,7 +115,19 @@ public class HotelController {
         }
     }
 
-    // Endpoint service call
+    @GetMapping("/amenities")
+    public ResponseEntity<Map<String, Object>> getAllAmenities() {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            List<String> amenities = hotelService.getAllAmenities();
+            response.put("amenities", amenities);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("message", "Lỗi khi lấy danh sách tiện ích: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
 
     @GetMapping("/hotel_detail")
     public ResponseEntity<Map<String, Object>> getHotelDetails(@RequestParam("hotelId") int hotelId) {
